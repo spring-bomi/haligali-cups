@@ -4,46 +4,46 @@
     <meta charset="UTF-8">
     <title>에어 할리갈리 컵스 - 메인 미션</title>
     <style>
-        body { background-color: #1e272e; color: white; display: flex; font-family: sans-serif; height: 100vh; margin: 0; overflow: hidden; }
+        body { background-color: #f1f2f6; color: #2f3542; display: flex; font-family: 'Segoe UI', sans-serif; height: 100vh; margin: 0; overflow: hidden; }
         
         /* 왼쪽 미션 영역 */
-        #missionBoard { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle, #34495e, #1e272e); border-right: 5px solid #000; position: relative;}
-        #missionTitle { font-size: 40px; font-weight: bold; color: #f1c40f; margin-bottom: 50px; text-shadow: 0 5px 10px rgba(0,0,0,0.5); }
+        #missionBoard { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle, #ffffff, #dfe4ea); border-right: 2px solid #ced6e0; position: relative; box-shadow: 5px 0 15px rgba(0,0,0,0.05); z-index: 2;}
+        #missionTitle { font-size: 45px; font-weight: 900; color: #2f3542; margin-bottom: 50px; letter-spacing: 2px; text-shadow: 1px 1px 0px rgba(255,255,255,0.8); text-align: center;}
         
         /* 미션 스택 */
         #targetStackArea { display: flex; flex-direction: column-reverse; align-items: center; justify-content: center; }
-        .target-cup { width: 120px; height: 140px; border-radius: 10px 10px 40px 40px; border: 5px solid rgba(255,255,255,0.3); box-shadow: 0 10px 20px rgba(0,0,0,0.5); margin-bottom: -50px; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: rgba(255,255,255,0.5);}
+        .target-cup { width: 140px; height: 160px; border-radius: 10px 10px 40px 40px; border: 8px solid rgba(255,255,255,0.9); box-shadow: 0 15px 25px rgba(0,0,0,0.15); margin-bottom: -60px; }
         
-        /* 컵 색상 정의 */
-        .red { background-color: #e74c3c; }
-        .yellow { background-color: #f1c40f; }
-        .green { background-color: #2ecc71; }
-        .blue { background-color: #3498db; }
-        .black { background-color: #111; border: 5px solid #555; }
+        /* 컵 색상 정의 (파스텔톤이 섞인 화사한 색) */
+        .red { background-color: #ff4757; }
+        .yellow { background-color: #ffa502; }
+        .green { background-color: #2ed573; }
+        .blue { background-color: #1e90ff; }
+        .black { background-color: #2f3542; }
 
         /* 오른쪽 플레이어 목록 영역 */
-        #playerBoard { flex: 1; padding: 20px; background-color: #111; overflow-y: auto; display: flex; flex-direction: column; align-items: center;}
+        #playerBoard { flex: 1; padding: 30px 20px; background-color: #f8f9fa; overflow-y: auto; display: flex; flex-direction: column; align-items: center; z-index: 1;}
         
-        .player-card { background-color: #3498db; width: 80%; padding: 15px; margin-bottom: 15px; border-radius: 15px; font-size: 24px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 5px 10px rgba(0,0,0,0.3);}
-        .score-badge { background-color: #f1c40f; color: #000; padding: 5px 15px; border-radius: 20px; }
+        .player-card { background-color: #ffffff; width: 85%; padding: 20px; margin-bottom: 15px; border-radius: 15px; font-size: 22px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #f1f2f6;}
+        .player-name { color: #57606f; }
+        .score-badge { background-color: #ffa502; color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 20px; font-weight: 900; box-shadow: 0 2px 5px rgba(255, 165, 2, 0.4);}
 
-        #startBtn { padding: 20px 40px; font-size: 28px; background-color: #e74c3c; color: white; border: none; border-radius: 15px; cursor: pointer; font-weight: bold; margin-top: 20px; box-shadow: 0 10px 20px rgba(231, 76, 60, 0.4);}
-        #startBtn:hover { background-color: #c0392b; transform: scale(1.05);}
+        #startBtn { padding: 20px 40px; font-size: 28px; background-color: #ff4757; color: white; border: none; border-radius: 15px; cursor: pointer; font-weight: 900; margin-top: 30px; box-shadow: 0 10px 20px rgba(255, 71, 87, 0.3); transition: all 0.2s; letter-spacing: 1px;}
+        #startBtn:hover { background-color: #ff6b81; transform: translateY(-3px); box-shadow: 0 15px 25px rgba(255, 71, 87, 0.4);}
         
-        #winnerBanner { display: none; position: absolute; top: 30%; background: #e74c3c; padding: 30px 100px; font-size: 50px; font-weight: bold; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 100; transform: rotate(-5deg);}
+        #winnerBanner { display: none; position: absolute; top: 35%; background: #2ed573; color: white; padding: 40px 80px; font-size: 55px; font-weight: 900; border-radius: 25px; box-shadow: 0 15px 40px rgba(46, 213, 115, 0.5); z-index: 100; transform: rotate(-5deg); border: 5px solid #fff;}
     </style>
 </head>
 <body>
 
     <div id="missionBoard">
-        <div id="missionTitle">대기 중...</div>
-        <div id="targetStackArea">
-            </div>
+        <div id="missionTitle">참가자 입장 대기 중...</div>
+        <div id="targetStackArea"></div>
         <div id="winnerBanner">🎉 승리!</div>
     </div>
 
     <div id="playerBoard">
-        <h2 style="color: #ecf0f1; margin-bottom: 30px;">참가자 명단</h2>
+        <h2 style="color: #2f3542; margin-bottom: 30px; font-size: 28px; border-bottom: 3px solid #dfe4ea; padding-bottom: 10px;">참가자 명단</h2>
         <div id="playerList" style="width: 100%; display: flex; flex-direction: column; align-items: center;"></div>
         <button id="startBtn">🚨 미션 시작 🚨</button>
     </div>
@@ -59,21 +59,18 @@
         const startBtn = document.getElementById('startBtn');
         const winnerBanner = document.getElementById('winnerBanner');
 
-        // 전광판 화면 그리기
         socket.on('updateDisplay', (data) => {
-            // 플레이어 명단 업데이트
             playerList.innerHTML = '';
             for (let id in data.players) {
                 const p = data.players[id];
                 playerList.innerHTML += `
                     <div class="player-card">
-                        <span>${p.name}</span>
+                        <span class="player-name">${p.name}</span>
                         <span class="score-badge">${p.score}점</span>
                     </div>
                 `;
             }
 
-            // 미션 상태 업데이트
             if (data.gameState === 'lobby') {
                 missionTitle.innerText = "참가자들을 기다리는 중...";
                 targetStackArea.innerHTML = '';
@@ -84,7 +81,6 @@
                 startBtn.style.display = 'none';
                 winnerBanner.style.display = 'none';
                 
-                // 목표 타워 렌더링 (flex-direction: column-reverse로 인해 배열의 첫 요소가 맨 아래 배치됨)
                 targetStackArea.innerHTML = '';
                 data.targetStack.forEach((color, index) => {
                     const cup = document.createElement('div');
@@ -95,7 +91,6 @@
             }
         });
 
-        // 누군가 정답을 맞춰 라운드가 끝났을 때
         socket.on('roundWinner', (data) => {
             winnerBanner.innerText = `🎉 ${data.winnerName} 정답! 🎉`;
             winnerBanner.style.display = 'block';
