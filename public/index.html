@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>에어 할리갈리 컵스 - 컨트롤러</title>
+    <style>
+        body { margin: 0; background-color: #2c3e50; color: white; font-family: sans-serif; text-align: center; height: 100vh; overflow: hidden; display: flex; flex-direction: column; touch-action: manipulation;}
+        .screen { display: none; flex: 1; flex-direction: column; justify-content: center; align-items: center; width: 100%; }
+        .active { display: flex; }
+        
+        input { padding: 15px; font-size: 20px; border-radius: 10px; border: none; width: 80%; margin-bottom: 20px; text-align: center; font-weight: bold; }
+        .btn-join { padding: 15px 30px; font-size: 20px; background-color: #e74c3c; color: white; border: none; border-radius: 10px; font-weight: bold; width: 80%; }
+        
+        /* 할리갈리 플레이 화면 UI */
+        #slapBtn { width: 90%; height: 100px; background: radial-gradient(circle, #e74c3c, #c0392b); color: white; font-size: 32px; font-weight: bold; border: 5px solid #a5281b; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transition: transform 0.1s; display: flex; justify-content: center; align-items: center;}
+        #slapBtn:active { transform: scale(0.95); background: #c0392b; }
+        
+        .play-area { flex: 1; display: flex; flex-direction: column; width: 100%; padding: 20px; box-sizing: border-box; }
+        .stack-area { flex: 1; border: 2px dashed #7f8c8d; border-radius: 15px; margin-bottom: 20px; display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; padding: 10px; gap: -20px; /* 컵이 겹쳐 보이도록 음수 마진 적용 */ }
+        .pool-area { height: 100px; background-color: rgba(0,0,0,0.3); border-radius: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; padding: 10px; }
+        
+        /* 컵 디자인 */
+        .cup { width: 60px; height: 70px; border-radius: 5px 5px 20px 20px; border: 3px solid rgba(255,255,255,0.3); box-shadow: 0 5px 10px rgba(0,0,0,0.4); z-index: 1; cursor: pointer;}
+        .cup.red { background-color: #e74c3c; }
+        .cup.yellow { background-color: #f1c40f; }
+        .cup.green { background-color: #2ecc71; }
+        .cup.blue { background-color: #3498db; }
+        .cup.black { background-color: #111; border: 3px solid #555; }
+        
+        .cup-stacked { margin-bottom: -30px; /* 위로 쌓일 때 겹쳐보이게 */ }
+
+        #freezeOverlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(231, 76, 60, 0.8); z-index: 100; justify-content: center; align-items: center; font-size: 40px; font-weight: bold; flex-direction: column;}
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen" class="screen active">
+        <h1 style="font-size: 32px; margin-bottom: 10px; color:#f1c40f;">🏆 할리갈리 컵스</h1>
+        <p style="margin-bottom: 40px; color: #bdc3c7;">빛의 속도로 컵을 쌓고 종을 치세요!</p>
+        <input type="text" id="nicknameInput" placeholder="닉네임">
+        <button class="btn-join" id="joinBtn">테이블 입장</button>
+    </div>
+
+    <div id="waitScreen" class="screen">
+        <h2 style="color: #3498db;">대기 중...</h2>
+        <p style="color: #bdc3c7;">전광판을 보고 게임 시작을 기다리세요.</p>
+    </div>
+
+    <div id="playScreen" class="screen">
+        <div id="slapBtn">🔔 SLAP!</div>
+        <div class="play-area">
+            <div style="text-align: left; color: #bdc3c7; font-weight: bold; margin-bottom: 5px;">내 스택 (터치 시 아래로)</div>
+            <div class="stack-area" id="stackArea"></div>
+            
+            <div style="text-align: left; color: #bdc3c7; font-weight: bold; margin-bottom: 5px;">바닥 (터치 시 위로)</div>
+            <div class="pool-area" id="poolArea"></div>
+        </div>
+    </div>
+
+    <div id="freezeOverlay">
+        <span>❌ 오답! ❌</span>
+        <span style="font-size: 20px; margin-top:10px;">3초간 조작 정지</span>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myStack = [];
+        let myPool = ['red', 'yellow', 'green', 'blue', 'black'];
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        document.getElementById('joinBtn').addEventListener('click', () => {
+            const nickname = document.getElementById('nicknameInput').value.trim();
+            if(nickname) {
+                socket.emit('join', nickname);
+                switchScreen('waitScreen');
+            }
+        });
+
+        // 컵 UI 렌더링 함수
+        function renderCups() {
+            const poolArea = document.getElementById('poolArea');
+            const stackArea = document.getElementById('stackArea');
+            
+            poolArea.innerHTML = '';
+            stackArea.innerHTML = '';
+
+            // 바닥에 있는 컵 렌더링
+            myPool.forEach(color => {
+                const cup = document.createElement('div');
+                cup.className = `cup ${color}`;
+                cup.onclick = () => moveCupToStack(color);
+                poolArea.appendChild(cup);
+            });
+
+            // 스택에 있는 컵 렌더링 (배열의 0번이 맨 아래이므로 그대로 렌더링하면 flex-direction: column-reverse로 인해 아래부터 쌓임)
+            myStack.forEach((color, index) => {
+                const cup = document.createElement('div');
+                cup.className = `cup ${color} cup-stacked`;
+                cup.style.zIndex = index; // 아래 컵이 위에 덮이도록 z-index 조절
+                cup.onclick = () => moveCupToPool(color);
+                stackArea.appendChild(cup);
+            });
+        }
+
+        function moveCupToStack(color) {
+            myPool = myPool.filter(c => c !== color);
+            myStack.push(color);
+            renderCups();
+        }
+
+        function moveCupToPool(color) {
+            // 스택에서 컵을 빼면 가장 위에 있는 것만 빠지는 것이 아니라, 선택한 컵이 빠지도록
+            myStack = myStack.filter(c => c !== color);
+            myPool.push(color);
+            renderCups();
+        }
+
+        socket.on('phaseChange', (phase) => {
+            if(phase === 'lobby' || phase === 'round_end') {
+                switchScreen('waitScreen');
+            } else if (phase === 'playing') {
+                // 게임 시작 시 컵 초기화
+                myStack = [];
+                myPool = ['red', 'yellow', 'green', 'blue', 'black'];
+                renderCups();
+                switchScreen('playScreen');
+            }
+        });
+
+        // 🔔 종 치기!
+        document.getElementById('slapBtn').addEventListener('click', () => {
+            // 올려둔 스택 배열을 통째로 서버로 전송
+            socket.emit('slap', myStack);
+        });
+
+        // 오답 패널티 처리
+        socket.on('wrongSlap', () => {
+            const overlay = document.getElementById('freezeOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 3000);
+        });
+
+        // 누군가 정답을 맞춤
+        socket.on('roundWinner', (data) => {
+            document.querySelector('#waitScreen h2').innerText = `🎉 ${data.winnerName} 승리!`;
+            switchScreen('waitScreen');
+        });
+    </script>
+</body>
+</html>
