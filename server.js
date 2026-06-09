@@ -25,10 +25,10 @@ io.on('connection', (socket) => {
 
     // 2. 플레이어 접속
     socket.on('join', (nickname) => {
-        players[socket.id] = { name: nickname };
+        // ⭐ 점수(score) 속성 추가
+        players[socket.id] = { name: nickname, score: 0 };
         broadcastPlayerList();
         
-        // 게임 중 난입 처리
         if (isPlaying) {
             socket.emit('phaseChange', 'playing');
         } else {
@@ -36,24 +36,21 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 접속자 명단을 전광판으로 전송
+    // 접속자 명단(이름+점수)을 전광판으로 전송
     function broadcastPlayerList() {
-        const list = Object.values(players).map(p => p.name);
+        const list = Object.values(players).map(p => ({ name: p.name, score: p.score }));
         io.emit('updatePlayerList', list);
     }
 
-    // 3. 게임 시작 로직 (전광판에서 버튼 클릭 시)
+    // 3. 게임 시작 로직
     socket.on('startGame', () => {
         if (Object.keys(players).length === 0) return;
         isPlaying = true;
         startNewRound();
     });
 
-    // 새로운 라운드의 목표 컵 타워 생성
     function startNewRound() {
-        // 5가지 색상을 랜덤으로 섞어서 정답 스택 생성
         targetStack = [...colors].sort(() => Math.random() - 0.5);
-        
         io.emit('roundStart', targetStack);
         io.emit('phaseChange', 'playing');
     }
@@ -64,7 +61,6 @@ io.on('connection', (socket) => {
         
         let isCorrect = true;
         
-        // 5개를 다 쌓지 않았거나, 순서가 하나라도 다르면 오답 처리
         if (myStack.length !== 5) {
             isCorrect = false;
         } else {
@@ -77,19 +73,23 @@ io.on('connection', (socket) => {
         }
 
         if (isCorrect) {
-            // 정답 처리
             isPlaying = false;
+            
+            // ⭐ 정답을 맞힌 플레이어 점수 1점 증가
+            if (players[socket.id]) {
+                players[socket.id].score += 1;
+            }
+            
             const winnerName = players[socket.id] ? players[socket.id].name : '누군가';
             
             io.emit('roundWinner', { winnerName: winnerName });
+            broadcastPlayerList(); // 점수가 올랐으니 전광판 갱신
             io.emit('phaseChange', 'round_end');
             
-            // 4초 뒤 대기실 상태로 초기화 (전광판 연출 시간 대기)
             setTimeout(() => {
                 io.emit('phaseChange', 'lobby');
             }, 4000);
         } else {
-            // 오답 처리 (해당 플레이어에게만 3초 정지 페널티 전송)
             socket.emit('wrongSlap');
         }
     });
