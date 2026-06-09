@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>에어 할리갈리 컵스 - 컨트롤러</title>
+    <title>에어 할리갈리 컵스 - 컨트롤러 (핸드 트래킹)</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
     <style>
         body { margin: 0; background-color: #f4f7f6; color: #2c3e50; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; height: 100vh; overflow: hidden; display: flex; flex-direction: column; touch-action: manipulation;}
         .screen { display: none; flex: 1; flex-direction: column; justify-content: center; align-items: center; width: 100%; }
@@ -14,8 +20,7 @@
         
         .btn-join { padding: 15px 30px; font-size: 20px; background-color: #e74c3c; color: white; border: none; border-radius: 12px; font-weight: bold; width: 80%; box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3); cursor: pointer;}
         
-        /* 할리갈리 플레이 화면 UI */
-        #slapBtn { width: 90%; height: 100px; background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; font-size: 36px; font-weight: 900; border: 4px solid #fff; border-radius: 20px; margin-top: 20px; box-shadow: 0 8px 15px rgba(255, 71, 87, 0.4); transition: transform 0.1s; display: flex; justify-content: center; align-items: center; text-shadow: 1px 2px 3px rgba(0,0,0,0.2);}
+        #slapBtn { width: 90%; height: 100px; background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; font-size: 36px; font-weight: 900; border: 4px solid #fff; border-radius: 20px; margin-top: 20px; box-shadow: 0 8px 15px rgba(255, 71, 87, 0.4); transition: transform 0.1s; display: flex; justify-content: center; align-items: center; text-shadow: 1px 2px 3px rgba(0,0,0,0.2); cursor: pointer; z-index: 10;}
         #slapBtn:active { transform: scale(0.95); background: #ff4757; }
         
         .play-area { flex: 1; display: flex; flex-direction: column; width: 100%; padding: 20px; box-sizing: border-box; }
@@ -24,7 +29,6 @@
         
         .section-title { text-align: left; color: #7f8c8d; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
 
-        /* 컵 디자인 */
         .cup { width: 60px; height: 70px; border-radius: 5px 5px 20px 20px; border: 3px solid rgba(255,255,255,0.8); box-shadow: 0 5px 10px rgba(0,0,0,0.15); z-index: 1; cursor: pointer; transition: transform 0.1s;}
         .cup:active { transform: scale(0.9); }
         .cup.red { background-color: #ff4757; }
@@ -32,17 +36,25 @@
         .cup.green { background-color: #2ed573; }
         .cup.blue { background-color: #1e90ff; }
         .cup.black { background-color: #2f3542; }
-        
         .cup-stacked { margin-bottom: -30px; }
 
         #freezeOverlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); z-index: 100; justify-content: center; align-items: center; font-size: 40px; font-weight: bold; flex-direction: column; color: #e74c3c;}
+
+        /* ⭐ 카메라 및 가상 커서 UI */
+        #webcam { position: absolute; top: 10px; right: 10px; width: 100px; height: 75px; border-radius: 8px; z-index: 50; transform: scaleX(-1); border: 2px solid #3498db; box-shadow: 0 4px 10px rgba(0,0,0,0.3); background-color: #000; display: none; }
+        #virtualCursor { position: fixed; width: 20px; height: 20px; background-color: rgba(46, 204, 113, 0.8); border: 2px solid white; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); display: none; transition: transform 0.1s, background-color 0.1s; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        #aiStatus { font-size: 14px; color: #3498db; font-weight: bold; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
+    <video id="webcam" autoplay playsinline></video>
+    <div id="virtualCursor"></div>
+
     <div id="loginScreen" class="screen active">
         <h1 style="font-size: 36px; margin-bottom: 10px; color:#ff4757; font-weight: 900;">🏆 할리갈리 컵스</h1>
-        <p style="margin-bottom: 40px; color: #7f8c8d; font-weight: bold;">빛의 속도로 컵을 쌓고 종을 치세요!</p>
+        <p style="margin-bottom: 20px; color: #7f8c8d; font-weight: bold;">손가락으로 컵을 집어 쌓고 종을 치세요!</p>
+        <div id="aiStatus">카메라가 켜지면 입장할 수 있습니다...</div>
         <input type="text" id="nicknameInput" placeholder="당신의 이름은?">
         <button class="btn-join" id="joinBtn">테이블 입장</button>
     </div>
@@ -55,10 +67,10 @@
     <div id="playScreen" class="screen">
         <div id="slapBtn">🔔 SLAP!</div>
         <div class="play-area">
-            <div class="section-title">내 스택 (터치 시 바닥으로)</div>
+            <div class="section-title">내 스택 (터치/꼬집기 시 바닥으로)</div>
             <div class="stack-area" id="stackArea"></div>
             
-            <div class="section-title">바닥 (터치 시 위로)</div>
+            <div class="section-title">바닥 (터치/꼬집기 시 위로)</div>
             <div class="pool-area" id="poolArea"></div>
         </div>
     </div>
@@ -75,16 +87,104 @@
         let myStack = [];
         let myPool = ['red', 'yellow', 'green', 'blue', 'black'];
 
+        // AI 관련 변수
+        const videoElement = document.getElementById('webcam');
+        const virtualCursor = document.getElementById('virtualCursor');
+        const aiStatus = document.getElementById('aiStatus');
+        let isCameraRunning = false;
+        let wasPinching = false;
+        let isPlaying = false;
+
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
+            
+            if (screenId === 'playScreen') {
+                videoElement.style.display = 'block';
+                virtualCursor.style.display = 'block';
+                isPlaying = true;
+            } else {
+                videoElement.style.display = 'none';
+                virtualCursor.style.display = 'none';
+                isPlaying = false;
+            }
         }
+
+        // 🟢 [AI 로직] 카메라 시작 및 가상 커서 설정
+        function startCamera() {
+            if (isCameraRunning) return;
+            isCameraRunning = true;
+
+            const hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+            hands.onResults((results) => {
+                if (!isPlaying) return;
+
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    const landmarks = results.multiHandLandmarks[0];
+                    const indexTip = landmarks[8];
+                    const thumbTip = landmarks[4];
+
+                    // 화면 좌표로 변환 (거울 모드이므로 x축 반전)
+                    // 화면 끝까지 잘 이동하도록 민감도를 살짝 높임 (1.2배수)
+                    let x = (1 - indexTip.x) * window.innerWidth * 1.2 - (window.innerWidth * 0.1);
+                    let y = indexTip.y * window.innerHeight * 1.2 - (window.innerHeight * 0.1);
+                    
+                    // 화면 밖으로 나가지 않도록 보정
+                    x = Math.max(0, Math.min(window.innerWidth, x));
+                    y = Math.max(0, Math.min(window.innerHeight, y));
+
+                    virtualCursor.style.left = `${x}px`;
+                    virtualCursor.style.top = `${y}px`;
+
+                    // 엄지와 검지 사이의 거리 계산 (Pinch 인식)
+                    const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+                    const isPinching = pinchDistance < 0.05;
+
+                    if (isPinching && !wasPinching) {
+                        // 꼬집는 순간: 커서 색상 변경 및 해당 위치의 요소 클릭
+                        virtualCursor.style.transform = 'translate(-50%, -50%) scale(0.6)';
+                        virtualCursor.style.backgroundColor = '#ff4757';
+                        
+                        // 현재 커서 위치 아래에 있는 HTML 요소 찾기
+                        const elementAtPoint = document.elementFromPoint(x, y);
+                        // 오답으로 인한 Freeze 상태가 아닐 때만 클릭 이벤트 발생
+                        if (elementAtPoint && document.getElementById('freezeOverlay').style.display !== 'flex') {
+                            elementAtPoint.click(); 
+                        }
+                    } else if (!isPinching && wasPinching) {
+                        // 손가락을 뗐을 때: 커서 원래대로 복구
+                        virtualCursor.style.transform = 'translate(-50%, -50%) scale(1)';
+                        virtualCursor.style.backgroundColor = 'rgba(46, 204, 113, 0.8)';
+                    }
+                    wasPinching = isPinching;
+                }
+            });
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => { await hands.send({image: videoElement}); },
+                width: 640, height: 480
+            });
+            camera.start().then(() => {
+                aiStatus.innerText = "✅ 카메라 연동 완료! 닉네임을 입력하세요.";
+                aiStatus.style.color = "#2ecc71";
+            });
+        }
+
+        // 페이지 접속 시 즉시 카메라 로드 시작
+        startCamera();
 
         document.getElementById('joinBtn').addEventListener('click', () => {
             const nickname = document.getElementById('nicknameInput').value.trim();
             if(nickname) {
                 socket.emit('join', nickname);
                 switchScreen('waitScreen');
+            } else {
+                alert("이름을 꼭 입력해주세요!");
             }
         });
 
@@ -147,7 +247,7 @@
         });
 
         socket.on('roundWinner', (data) => {
-            document.querySelector('#waitScreen h2').innerText = `🎉 ${data.winnerName} 승리!`;
+            document.querySelector('#waitScreen h2').innerText = `🎉 ${data.winnerName} 정답!`;
             switchScreen('waitScreen');
         });
     </script>
