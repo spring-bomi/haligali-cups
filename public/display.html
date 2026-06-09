@@ -9,10 +9,10 @@
         h1 { font-size: 4rem; margin-bottom: 10px; color: #f1c40f; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         #playerCountTitle { font-size: 24px; margin-bottom: 20px; color: #bdc3c7; font-weight: bold; }
         
-        #playerTags { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; width: 80%; }
-        .name-tag { background-color: #3498db; padding: 10px 20px; border-radius: 25px; font-size: 20px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #playerTags { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 30px; width: 80%; }
+        .name-tag { background-color: #3498db; padding: 12px 25px; border-radius: 30px; font-size: 22px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 10px; }
+        .score-badge { color: #f1c40f; font-weight: 900; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 15px; }
 
-        /* ⭐ 새로 추가된 튜토리얼 박스 스타일 */
         #tutorialBox {
             background: rgba(255, 255, 255, 0.1);
             border: 3px dashed #3498db;
@@ -29,7 +29,6 @@
         .tutorial-text { color: #ecf0f1; font-size: 22px; line-height: 1.6; margin: 8px 0; font-weight: bold; }
         .highlight { color: #f1c40f; font-weight: bold; background: rgba(241, 196, 15, 0.2); padding: 4px 10px; border-radius: 8px; }
 
-        /* 목표 컵 타워 영역 (게임 시작 시 등장) */
         #targetArea { 
             display: none; 
             flex-direction: column-reverse; 
@@ -57,7 +56,6 @@
     <h1>🏆 할리갈리 컵스</h1>
     <div id="playerCountTitle">현재 접속 인원: 0명</div>
 
-    <!-- ⭐ 튜토리얼 박스 추가 -->
     <div id="tutorialBox">
         <div class="tutorial-title">📖 게임 방법 📖</div>
         <div class="tutorial-text">전광판에 제시된 목표 타워와 <span class="highlight">완벽히 똑같은 색상 순서로</span> 컵을 쌓고 가장 먼저 종을 치세요!</div>
@@ -82,7 +80,12 @@
 
         socket.on('updatePlayerList', (list) => {
             playerCountTitle.innerText = `현재 접속 인원: ${list.length}명 대기 중!`;
-            playerTags.innerHTML = list.map(name => `<div class="name-tag">${name}</div>`).join('');
+            // ⭐ 이름과 함께 점수를 뱃지 형태로 출력
+            playerTags.innerHTML = list.map(p => `
+                <div class="name-tag">
+                    ${p.name} <span class="score-badge">★ ${p.score}</span>
+                </div>
+            `).join('');
         });
 
         startBtn.addEventListener('click', () => {
@@ -94,7 +97,6 @@
         });
 
         socket.on('roundStart', (targetStack) => {
-            // ⭐ 게임 시작 시 대기실 UI 숨기고 타워 표시
             tutorialBox.style.display = 'none';
             startBtn.style.display = 'none';
             playerTags.style.display = 'none';
@@ -103,7 +105,6 @@
             targetArea.style.display = 'flex';
             targetArea.innerHTML = '';
             
-            // 목표 컵 렌더링
             targetStack.forEach((color, index) => {
                 const cup = document.createElement('div');
                 cup.className = `cup ${color}`;
@@ -113,17 +114,15 @@
         });
 
         socket.on('roundWinner', (data) => {
-            // 정답자 발표 연출
             targetArea.innerHTML = `
                 <div style="font-size: 50px; color: #f1c40f; font-weight: 900; margin-bottom: 20px; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">
-                    🎉 ${data.winnerName} 정답! 🎉
+                    🎉 ${data.winnerName} 정답! (+1점) 🎉
                 </div>
             `;
             targetArea.style.border = "none";
             targetArea.style.background = "transparent";
             targetArea.style.boxShadow = "none";
             
-            // 4초 뒤 로비(대기실) 화면으로 복귀
             setTimeout(() => {
                 tutorialBox.style.display = 'block';
                 startBtn.style.display = 'block';
